@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NEBULA STRIKE — Advanced 2D Sci-Fi Space Shooter Game built with HTML5 Canvas, Web Audio API, and high-octane arcade action.">
+  <title>NEBULA STRIKE 🚀 — Defend the Galaxy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="arcade-wrapper">
+    <header class="game-header">
+      <div class="logo">
+        <span class="logo-icon">🚀</span>
+        <span class="logo-text">NEBULA <span class="highlight">STRIKE</span></span>
+      </div>
+      <div class="header-controls">
+        <button id="btn-audio-toggle" class="arcade-btn-sm" title="Toggle Sound">🔊 AUDIO: ON</button>
+        <button id="btn-fullscreen" class="arcade-btn-sm" title="Toggle Fullscreen">⛶ FULLSCREEN</button>
+      </div>
+    </header>
+
+    <main class="canvas-container">
+      <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    </main>
+
+    <footer class="game-footer">
+      <div class="controls-hint">
+        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> Move</span>
+        <span><kbd>SPACE</kbd> Fire</span>
+        <span><kbd>P</kbd> Pause</span>
+        <span><kbd>ESC</kbd> Menu</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
