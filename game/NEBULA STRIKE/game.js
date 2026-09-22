@@ -22,6 +22,94 @@ const COLORS = {
   panelBg: 'rgba(12, 18, 40, 0.85)',
 };
 
+const THEMES = {
+  CYBER_NEON: {
+    name: 'CYBER NEON',
+    bg: '#070b19',
+    primary: '#00f0ff',
+    secondary: '#ff007f',
+    accent: '#00ff88',
+    starTints: ['#b4dcff', '#c8f0ff', '#ffffff', '#8cb4ff'],
+    nebulaColors: ['#0064c8', '#7800a0', '#00b4dc'],
+    playerHull: '#19233c',
+    playerAccent: '#00f0ff',
+    playerGlow: '#00fff0',
+    thruster: '#00f0ff',
+    bullet: '#00f0ff',
+    shield: '#00f0ff',
+    panelBg: 'rgba(12, 18, 40, 0.85)',
+    panelBorder: '#00f0ff'
+  },
+  SOLAR_INFERNO: {
+    name: 'SOLAR INFERNO',
+    bg: '#140808',
+    primary: '#ff5a00',
+    secondary: '#ffc800',
+    accent: '#ff2828',
+    starTints: ['#ffdcb4', '#ffbe8c', '#ffffe6', '#ff8250'],
+    nebulaColors: ['#b42800', '#dc6400', '#8c0a14'],
+    playerHull: '#321914',
+    playerAccent: '#ff7800',
+    playerGlow: '#ffd700',
+    thruster: '#ff8c00',
+    bullet: '#ffa014',
+    shield: '#ffa028',
+    panelBg: 'rgba(35, 15, 15, 0.85)',
+    panelBorder: '#ff7800'
+  },
+  TOXIC_MATRIX: {
+    name: 'TOXIC MATRIX',
+    bg: '#05120c',
+    primary: '#00ff88',
+    secondary: '#00e6ff',
+    accent: '#b4ff00',
+    starTints: ['#b4ffc8', '#c8ffe6', '#f0fff0', '#64e696'],
+    nebulaColors: ['#008c3c', '#005a64', '#28b450'],
+    playerHull: '#122a1c',
+    playerAccent: '#00ff88',
+    playerGlow: '#8cff64',
+    thruster: '#00ff88',
+    bullet: '#00ffa0',
+    shield: '#00ff8c',
+    panelBg: 'rgba(10, 28, 20, 0.85)',
+    panelBorder: '#00ff88'
+  },
+  RETRO_SYNTHWAVE: {
+    name: 'RETRO SYNTHWAVE',
+    bg: '#120620',
+    primary: '#ff00a0',
+    secondary: '#a000ff',
+    accent: '#ffb400',
+    starTints: ['#ffc8f0', '#e6b4ff', '#ffffff', '#ff8cdc'],
+    nebulaColors: ['#9600b4', '#c80078', '#50008c'],
+    playerHull: '#281237',
+    playerAccent: '#ff00a0',
+    playerGlow: '#ff78dc',
+    thruster: '#ff00b4',
+    bullet: '#ff32b4',
+    shield: '#dc3cff',
+    panelBg: 'rgba(28, 12, 45, 0.85)',
+    panelBorder: '#ff00a0'
+  },
+  CELESTIAL_AURORA: {
+    name: 'CELESTIAL AURORA',
+    bg: '#0a081e',
+    primary: '#aa78ff',
+    secondary: '#ffd75a',
+    accent: '#00e6f0',
+    starTints: ['#dcd2ff', '#fff0c8', '#ffffff', '#b4a0f0'],
+    nebulaColors: ['#5a28b4', '#8c5adc', '#1e78a0'],
+    playerHull: '#1e193c',
+    playerAccent: '#aa78ff',
+    playerGlow: '#ffd75a',
+    thruster: '#a078ff',
+    bullet: '#be96ff',
+    shield: '#a08cff',
+    panelBg: 'rgba(20, 16, 45, 0.85)',
+    panelBorder: '#aa78ff'
+  }
+};
+
 // --- WEB AUDIO SYNTHESIZER ---
 class SoundManager {
   constructor() {
@@ -165,6 +253,17 @@ class Starfield {
       { x: WIDTH * 0.5, y: HEIGHT * 1.1, radius: 280, color: 'rgba(120, 30, 90, 0.07)', speed: 0.22 },
     ];
     this.time = 0;
+    this.theme = null;
+  }
+
+  applyTheme(theme) {
+    if (!theme) return;
+    this.theme = theme;
+    if (theme.nebulaColors && theme.nebulaColors.length >= 3) {
+      this.nebulae[0].color = theme.nebulaColors[0] + '18';
+      this.nebulae[1].color = theme.nebulaColors[1] + '18';
+      this.nebulae[2].color = theme.nebulaColors[2] + '14';
+    }
   }
 
   createStar(layer) {
@@ -211,12 +310,18 @@ class Starfield {
     }
 
     // Draw Stars
-    for (const star of this.stars) {
+    const tints = this.theme && this.theme.starTints ? this.theme.starTints : ['#b4dcff', '#c8f0ff', '#ffffff'];
+    for (let i = 0; i < this.stars.length; i++) {
+      const star = this.stars[i];
       const alpha = 0.6 + 0.4 * Math.sin(this.time * 3 + star.twinkle);
-      ctx.fillStyle = star.layer === 2 ? `rgba(255, 255, 255, ${alpha})` : `rgba(180, 210, 255, ${alpha})`;
+      const starColor = star.layer === 2 ? '#ffffff' : tints[i % tints.length];
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = starColor;
       ctx.beginPath();
       ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
   }
 }
@@ -227,6 +332,7 @@ class ParticleSystem {
     this.particles = [];
     this.shockwaves = [];
     this.floatingTexts = [];
+    this.smokeParticles = [];
   }
 
   createExplosion(x, y, color = COLORS.orange, count = 28, maxSpeed = 7.0) {
@@ -264,6 +370,44 @@ class ParticleSystem {
     });
   }
 
+  createDamageSmoke(x, y, isFire = false) {
+    const angle = (Math.random() * 0.5 + 0.25) * Math.PI;
+    const speed = 0.5 + Math.random() * 1.8;
+    this.smokeParticles.push({
+      x: x + (Math.random() * 8 - 4),
+      y: y + (Math.random() * 8 - 4),
+      vx: Math.cos(angle) * speed * (Math.random() < 0.5 ? -1 : 1),
+      vy: 0.8 + Math.random() * 2.0,
+      radius: isFire ? 2 + Math.random() * 2.5 : 3.5 + Math.random() * 3,
+      color: isFire
+        ? (Math.random() < 0.5 ? '#ff4b14' : '#ffaa00')
+        : (Math.random() < 0.5 ? '#556070' : '#323845'),
+      life: 22 + Math.random() * 14,
+      maxLife: 36,
+    });
+  }
+
+  createWarpInEffect(x, y, color = COLORS.cyan) {
+    this.shockwaves.push({ x, y, radius: 5, maxRadius: 85, alpha: 1.0, color });
+    this.shockwaves.push({ x, y, radius: 5, maxRadius: 50, alpha: 1.0, color: '#ffffff' });
+    for (let i = 0; i < 30; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 80;
+      const startX = x + Math.cos(angle) * dist;
+      const startY = y + Math.sin(angle) * dist;
+      this.particles.push({
+        x: startX,
+        y: startY,
+        vx: (x - startX) / 14,
+        vy: (y - startY) / 14,
+        color: [color, '#ffffff', COLORS.yellow][Math.floor(Math.random() * 3)],
+        radius: 2 + Math.random() * 2,
+        life: 16,
+        maxLife: 16,
+      });
+    }
+  }
+
   createAsteroidDebris(x, y, count = 14) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -281,8 +425,31 @@ class ParticleSystem {
     }
   }
 
-  addFloatingText(x, y, text, color = COLORS.yellow) {
-    this.floatingTexts.push({ x, y, text, color, life: 50, maxLife: 50 });
+  addFloatingText(x, y, text, color = COLORS.yellow, isCrit = false) {
+    this.floatingTexts.push({ x, y, text, color, life: 50, maxLife: 50, isCrit });
+  }
+
+  addDamagePopup(x, y, amount, isCrit = false, isPlayer = false, isShield = false, shieldColor = COLORS.cyan) {
+    const jx = x + (Math.random() * 16 - 8);
+    const jy = y + (Math.random() * 10 - 5);
+    let txt = `-${Math.round(amount)}`;
+    let col = '#ffffff';
+
+    if (isShield) {
+      txt = `SHIELD -${Math.round(amount)}`;
+      col = shieldColor;
+    } else if (isPlayer) {
+      txt = `-${Math.round(amount)}`;
+      col = '#ff3b3b';
+      isCrit = true;
+    } else if (isCrit) {
+      txt = `-${Math.round(amount)} CRIT!`;
+      col = '#ffd700';
+    } else {
+      txt = `-${Math.round(amount)}`;
+      col = '#ffeedd';
+    }
+    this.addFloatingText(jx, jy, txt, col, isCrit);
   }
 
   update() {
@@ -295,6 +462,15 @@ class ParticleSystem {
       p.vy *= 0.96;
       p.life--;
       if (p.life <= 0) this.particles.splice(i, 1);
+    }
+    // Update smoke particles
+    for (let i = this.smokeParticles.length - 1; i >= 0; i--) {
+      const s = this.smokeParticles[i];
+      s.x += s.vx;
+      s.y += s.vy;
+      s.radius += 0.12;
+      s.life--;
+      if (s.life <= 0) this.smokeParticles.splice(i, 1);
     }
     // Update shockwaves
     for (let i = this.shockwaves.length - 1; i >= 0; i--) {
@@ -314,6 +490,15 @@ class ParticleSystem {
 
   draw(ctx) {
     ctx.save();
+    // Draw smoke particles
+    for (const sm of this.smokeParticles) {
+      const progress = sm.life / sm.maxLife;
+      ctx.fillStyle = sm.color;
+      ctx.globalAlpha = progress * 0.65;
+      ctx.beginPath();
+      ctx.arc(sm.x, sm.y, sm.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // Draw shockwaves
     for (const s of this.shockwaves) {
       ctx.strokeStyle = s.color;
@@ -332,12 +517,22 @@ class ParticleSystem {
       ctx.arc(p.x, p.y, Math.max(1, p.radius * progress), 0, Math.PI * 2);
       ctx.fill();
     }
-    // Draw floating texts
-    ctx.font = 'bold 18px Orbitron, sans-serif';
+    // Draw floating texts with pop scale and drop shadow
     ctx.textAlign = 'center';
     for (const t of this.floatingTexts) {
+      const elapsed = t.maxLife - t.life;
+      let scale = 1.0;
+      if (elapsed < 6) scale = 1.0 + (6 - elapsed) * 0.06;
+      const fontSize = Math.round((t.isCrit ? 20 : 16) * scale);
+      ctx.font = `bold ${fontSize}px Orbitron, sans-serif`;
+      ctx.globalAlpha = Math.min(1.0, (t.life / t.maxLife) * 1.5);
+
+      // Drop shadow
+      ctx.fillStyle = '#000000';
+      ctx.fillText(t.text, t.x + 2, t.y + 2);
+
+      // Foreground text
       ctx.fillStyle = t.color;
-      ctx.globalAlpha = t.life / t.maxLife;
       ctx.fillText(t.text, t.x, t.y);
     }
     ctx.restore();
@@ -347,6 +542,7 @@ class ParticleSystem {
     this.particles = [];
     this.shockwaves = [];
     this.floatingTexts = [];
+    this.smokeParticles = [];
   }
 }
 
@@ -388,8 +584,8 @@ class Projectile {
 }
 
 class PlayerLaser extends Projectile {
-  constructor(x, y, isDouble = false) {
-    super(x, y, 0, -14, 25, isDouble ? COLORS.yellow : COLORS.cyan, 4);
+  constructor(x, y, isDouble = false, color = null) {
+    super(x, y, 0, -14, 25, color || (isDouble ? COLORS.yellow : COLORS.cyan), 4);
     this.isDouble = isDouble;
   }
 
@@ -464,6 +660,8 @@ class Player {
     this.maxShield = 100;
     this.shield = this.maxShield;
     this.lives = 3;
+    this.outs = 0;
+    this.maxOuts = 3;
     this.alive = true;
     this.tilt = 0;
     this.lastShotTime = 0;
@@ -499,7 +697,7 @@ class Player {
     this.tilt += (targetTilt - this.tilt) * 0.25;
   }
 
-  update(dt, particles) {
+  update(dt, particles, theme) {
     this.x = Math.max(30, Math.min(WIDTH - 30, this.x + this.vx));
     this.y = Math.max(35, Math.min(HEIGHT - 35, this.y + this.vy));
 
@@ -518,45 +716,64 @@ class Player {
       this.shield = Math.min(this.maxShield, this.shield + 12 * dt);
     }
 
-    // Thruster trail particles
+    // Thruster trail particles with theme color
+    const thrusterCol = theme && theme.thruster ? theme.thruster : COLORS.cyan;
     if (particles && this.alive) {
-      particles.createThrusterTrail(this.x - 12 + this.tilt * 3, this.y + 20, COLORS.cyan);
-      particles.createThrusterTrail(this.x + 12 - this.tilt * 3, this.y + 20, COLORS.cyan);
+      particles.createThrusterTrail(this.x - 12 + this.tilt * 3, this.y + 20, thrusterCol);
+      particles.createThrusterTrail(this.x + 12 - this.tilt * 3, this.y + 20, thrusterCol);
+
+      // Low health damage smoke & sparks
+      if (this.hp <= this.maxHp * 0.35 && Math.random() < 0.35) {
+        particles.createDamageSmoke(this.x, this.y, this.hp <= this.maxHp * 0.15);
+      }
     }
   }
 
-  shoot(now) {
+  shoot(now, theme) {
     const cooldown = this.powerups.rapid_fire > 0 ? 95 : 200;
     if (now - this.lastShotTime < cooldown) return [];
 
     this.lastShotTime = now;
     const bullets = [];
+    const bulletCol = theme && theme.bullet ? theme.bullet : null;
     if (this.powerups.laser > 0) {
       bullets.push(new MegaLaserBeam(this.x, this.y - 25));
     } else if (this.powerups.double_shot > 0) {
-      bullets.push(new PlayerLaser(this.x - 16, this.y - 12, true));
-      bullets.push(new PlayerLaser(this.x + 16, this.y - 12, true));
+      bullets.push(new PlayerLaser(this.x - 16, this.y - 12, true, bulletCol));
+      bullets.push(new PlayerLaser(this.x + 16, this.y - 12, true, bulletCol));
     } else {
-      bullets.push(new PlayerLaser(this.x, this.y - 25));
+      bullets.push(new PlayerLaser(this.x, this.y - 25, false, bulletCol));
     }
     return bullets;
   }
 
-  takeDamage(amount, now, particles) {
+  takeDamage(amount, now, particles, game) {
     if (now < this.invincibleUntil || !this.alive) return false;
+
+    const theme = game ? game.theme : null;
+    const shieldColor = theme && theme.shield ? theme.shield : COLORS.cyan;
 
     if (this.shield > 0) {
       const absorbed = Math.min(this.shield, amount);
       this.shield -= absorbed;
       amount -= absorbed;
       this.shieldCooldown = now + 4000;
-      if (particles) particles.createShockwave(this.x, this.y, COLORS.cyan, 40);
+      if (particles) {
+        particles.createShockwave(this.x, this.y, shieldColor, 40);
+        particles.addDamagePopup(this.x + 18, this.y - 12, absorbed, false, false, true, shieldColor);
+      }
     }
 
     if (amount > 0) {
       this.hp -= amount;
       this.invincibleUntil = now + 2000;
-      if (particles) particles.createExplosion(this.x, this.y, COLORS.red, 16, 5);
+      if (particles) {
+        particles.createExplosion(this.x, this.y, COLORS.red, 16, 5);
+        particles.addDamagePopup(this.x - 18, this.y - 12, amount, false, true);
+      }
+      if (game) {
+        game.damageVignette = Math.min(220, game.damageVignette + 110);
+      }
 
       if (this.hp <= 0) {
         this.hp = 0;
@@ -601,17 +818,23 @@ class Player {
     }
   }
 
-  draw(ctx) {
+  draw(ctx, theme) {
     if (!this.alive) return;
     const now = Date.now();
     if (now < this.invincibleUntil && Math.floor(now / 100) % 2 === 0) return;
 
+    const primary = theme && theme.primary ? theme.primary : COLORS.cyan;
+    const hullCol = theme && theme.playerHull ? theme.playerHull : '#19233c';
+    const glowCol = theme && theme.playerGlow ? theme.playerGlow : COLORS.cyan;
+    const accentCol = theme && theme.playerAccent ? theme.playerAccent : COLORS.cyan;
+    const shieldCol = theme && theme.shield ? theme.shield : COLORS.cyan;
+
     ctx.save();
     // Shield Dome
     if (this.shield > 0 || this.powerups.shield > 0) {
-      ctx.strokeStyle = COLORS.cyan;
+      ctx.strokeStyle = shieldCol;
       ctx.lineWidth = 2;
-      ctx.shadowColor = COLORS.cyan;
+      ctx.shadowColor = shieldCol;
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.arc(this.x, this.y, 36, 0, Math.PI * 2);
@@ -620,10 +843,10 @@ class Player {
 
     // Spaceship Hull
     const tiltPx = this.tilt * 6;
-    ctx.fillStyle = '#19233c';
-    ctx.strokeStyle = COLORS.cyan;
+    ctx.fillStyle = hullCol;
+    ctx.strokeStyle = accentCol;
     ctx.lineWidth = 2;
-    ctx.shadowColor = COLORS.cyan;
+    ctx.shadowColor = glowCol;
     ctx.shadowBlur = 8;
 
     ctx.beginPath();
@@ -640,7 +863,7 @@ class Player {
     ctx.stroke();
 
     // Cockpit
-    ctx.fillStyle = COLORS.cyan;
+    ctx.fillStyle = accentCol;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y - 18);
     ctx.lineTo(this.x + 4 + tiltPx / 2, this.y - 2);
@@ -1342,10 +1565,39 @@ class Game {
     this.highscores = this.loadHighScores();
     this.settings = { music: true, sfx: true, shake: true, difficulty: 'NORMAL' };
 
+    // Theming System
+    this.themeName = localStorage.getItem('nebula_theme') || 'CYBER_NEON';
+    this.theme = THEMES[this.themeName] || THEMES.CYBER_NEON;
+    this.themeToastTimer = 0;
+
+    // Combat Damage & Out System
+    this.damageVignette = 0;
+    this.totalDamageDealt = 0;
+    this.totalDamageTaken = 0;
+    this.enemiesKilled = 0;
+    this.asteroidsDestroyed = 0;
+
+    this.outBannerTimer = 0;
+    this.respawnTimer = 0;
+    this.isRespawning = false;
+    this.hitstopFrames = 0;
+
     this.initInputs();
     this.initButtons();
     this.loop = this.loop.bind(this);
     requestAnimationFrame(this.loop);
+  }
+
+  cycleTheme() {
+    const keys = Object.keys(THEMES);
+    const idx = (keys.indexOf(this.themeName) + 1) % keys.length;
+    this.themeName = keys[idx];
+    this.theme = THEMES[this.themeName];
+    try {
+      localStorage.setItem('nebula_theme', this.themeName);
+    } catch (e) {}
+    this.themeToastTimer = 90;
+    this.sound.play('powerup');
   }
 
   loadHighScores() {
@@ -1375,7 +1627,9 @@ class Game {
   initInputs() {
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
-      if (e.code === 'KeyP') {
+      if (e.code === 'KeyT') {
+        this.cycleTheme();
+      } else if (e.code === 'KeyP') {
         if (this.state === 'PLAYING' || this.state === 'BOSS_FIGHT') this.state = 'PAUSED';
         else if (this.state === 'PAUSED') this.state = this.boss ? 'BOSS_FIGHT' : 'PLAYING';
       } else if (e.code === 'Escape') {
@@ -1403,7 +1657,11 @@ class Game {
       }
     });
 
-    // Audio & Fullscreen buttons in header
+    // Header buttons
+    document.getElementById('btn-theme-toggle')?.addEventListener('click', () => {
+      this.cycleTheme();
+    });
+
     document.getElementById('btn-audio-toggle')?.addEventListener('click', (e) => {
       this.sound.enabled = !this.sound.enabled;
       e.target.textContent = `🔊 AUDIO: ${this.sound.enabled ? 'ON' : 'OFF'}`;
@@ -1434,16 +1692,24 @@ class Game {
     ];
 
     this.gameOverBtns = [
-      { x: cx, y: 370, w: 240, h: 50, text: '▶  PLAY AGAIN', action: () => this.resetGame() },
-      { x: cx, y: 440, w: 240, h: 50, text: '🏠  MAIN MENU', action: () => (this.state = 'MENU') },
+      { x: cx, y: 440, w: 240, h: 50, text: '▶  PLAY AGAIN', action: () => this.resetGame() },
+      { x: cx, y: 510, w: 240, h: 50, text: '🏠  MAIN MENU', action: () => (this.state = 'MENU') },
     ];
 
     this.settingsBtns = [
       {
         x: cx,
-        y: 480,
+        y: 430,
         w: 240,
-        h: 50,
+        h: 46,
+        text: 'CYCLE THEME (T)',
+        action: () => this.cycleTheme(),
+      },
+      {
+        x: cx,
+        y: 490,
+        w: 240,
+        h: 46,
         text: 'DIFFICULTY',
         action: () => {
           const diffs = ['EASY', 'NORMAL', 'HARD'];
@@ -1451,7 +1717,7 @@ class Game {
           this.settings.difficulty = diffs[idx];
         },
       },
-      { x: cx, y: 550, w: 240, h: 50, text: '◀  BACK', action: () => (this.state = 'MENU') },
+      { x: cx, y: 550, w: 240, h: 46, text: '◀  BACK', action: () => (this.state = 'MENU') },
     ];
 
     this.highScoreBtns = [{ x: cx, y: 580, w: 240, h: 50, text: '◀  BACK', action: () => (this.state = 'MENU') }];
@@ -1471,6 +1737,16 @@ class Game {
     this.particles.clear();
     this.levelTransitionTimer = 120;
     this.state = 'PLAYING';
+
+    this.damageVignette = 0;
+    this.totalDamageDealt = 0;
+    this.totalDamageTaken = 0;
+    this.enemiesKilled = 0;
+    this.asteroidsDestroyed = 0;
+    this.outBannerTimer = 0;
+    this.respawnTimer = 0;
+    this.isRespawning = false;
+    this.hitstopFrames = 0;
   }
 
   triggerScreenShake(intensity = 10) {
@@ -1530,10 +1806,13 @@ class Game {
         if (dist < b.radius + a.radius) {
           const destroyed = a.takeDamage(b.damage);
           this.sound.play('hit');
+          this.particles.addDamagePopup(a.x, a.y - 10, b.damage, false);
+          this.totalDamageDealt += b.damage;
           if (!b.piercing) b.alive = false;
 
           if (destroyed) {
             this.score += a.score;
+            this.asteroidsDestroyed++;
             this.sound.play('explosion');
             this.particles.createAsteroidDebris(a.x, a.y, 14);
             const pieces = a.split();
@@ -1552,12 +1831,16 @@ class Game {
         if (!e.alive) continue;
         const dist = Math.hypot(b.x - e.x, b.y - e.y);
         if (dist < b.radius + e.width / 2) {
+          const isCrit = b instanceof MegaLaserBeam || Math.random() < 0.2;
           const destroyed = e.takeDamage(b.damage);
           this.sound.play('hit');
+          this.particles.addDamagePopup(e.x, e.y - 12, b.damage, isCrit);
+          this.totalDamageDealt += b.damage;
           if (!b.piercing) b.alive = false;
 
           if (destroyed) {
             this.score += e.score;
+            this.enemiesKilled++;
             this.sound.play('explosion');
             this.particles.createExplosion(e.x, e.y, COLORS.orange, 24);
             this.particles.addFloatingText(e.x, e.y, `+${e.score}`);
@@ -1577,10 +1860,13 @@ class Game {
         if (dist < b.radius + this.boss.width / 2) {
           const destroyed = this.boss.takeDamage(b.damage);
           this.sound.play('hit');
+          this.particles.addDamagePopup(this.boss.x + (Math.random() * 50 - 25), this.boss.y + 10, b.damage, true);
+          this.totalDamageDealt += b.damage;
           if (!b.piercing) b.alive = false;
 
           if (destroyed) {
             this.score += this.boss.score;
+            this.enemiesKilled++;
             this.sound.play('explosion');
             for (let i = 0; i < 8; i++) {
               this.particles.createExplosion(
@@ -1606,7 +1892,7 @@ class Game {
       }
     }
 
-    if (!this.player || !this.player.alive) return;
+    if (!this.player || !this.player.alive || this.isRespawning) return;
 
     // 4. Enemy Bullets vs Player
     for (const eb of this.enemyBullets) {
@@ -1614,10 +1900,11 @@ class Game {
       const dist = Math.hypot(eb.x - this.player.x, eb.y - this.player.y);
       if (dist < eb.radius + 20) {
         eb.alive = false;
-        const died = this.player.takeDamage(eb.damage, now, this.particles);
+        this.totalDamageTaken += eb.damage;
+        const died = this.player.takeDamage(eb.damage, now, this.particles, this);
         this.sound.play('player_damage');
         this.triggerScreenShake(8);
-        if (died) this.handlePlayerDeath();
+        if (died) this.handlePlayerOut();
         break;
       }
     }
@@ -1629,10 +1916,11 @@ class Game {
       if (dist < a.radius + 22) {
         a.alive = false;
         this.particles.createAsteroidDebris(a.x, a.y, 16);
-        const died = this.player.takeDamage(40, now, this.particles);
+        this.totalDamageTaken += 40;
+        const died = this.player.takeDamage(40, now, this.particles, this);
         this.sound.play('player_damage');
         this.triggerScreenShake(12);
-        if (died) this.handlePlayerDeath();
+        if (died) this.handlePlayerOut();
         break;
       }
     }
@@ -1645,31 +1933,70 @@ class Game {
         pu.alive = false;
         this.player.applyPowerup(pu.type);
         this.sound.play('powerup');
-        this.particles.addFloatingText(this.player.x, this.player.y - 30, `${pu.type.toUpperCase()}!`, COLORS.cyan);
-        this.particles.createShockwave(this.player.x, this.player.y, COLORS.cyan, 50);
+        this.particles.addFloatingText(this.player.x, this.player.y - 30, `${pu.type.toUpperCase()}!`, this.theme.primary);
+        this.particles.createShockwave(this.player.x, this.player.y, this.theme.primary, 50);
       }
     }
   }
 
-  handlePlayerDeath() {
-    this.particles.createExplosion(this.player.x, this.player.y, COLORS.cyan, 36, 8.5);
+  handlePlayerOut() {
+    this.particles.createExplosion(this.player.x, this.player.y, this.theme.primary, 36, 8.5);
     this.sound.play('explosion');
-    this.triggerScreenShake(16);
-    this.player.loseLife();
-    if (!this.player.alive) {
-      this.state = 'GAME_OVER';
+    this.triggerScreenShake(20);
+    this.damageVignette = 220;
+    this.hitstopFrames = 8;
+    this.player.outs++;
+    this.player.lives--;
+
+    if (this.player.outs < 3) {
+      this.outBannerTimer = 140;
+      this.isRespawning = true;
+      this.respawnTimer = 2.0;
+      this.player.alive = false;
+    } else {
+      this.outBannerTimer = 160;
+      this.player.alive = false;
       this.sound.play('game_over');
       this.saveHighScore();
+      setTimeout(() => {
+        if (this.state === 'PLAYING' || this.state === 'BOSS_FIGHT') {
+          this.state = 'GAME_OVER';
+        }
+      }, 1800);
     }
   }
 
   update(dt) {
+    // Hitstop freeze frame handling
+    if (this.hitstopFrames > 0) {
+      this.hitstopFrames--;
+      return;
+    }
+
     const now = Date.now();
     this.starfield.update(this.state === 'PLAYING' || this.state === 'BOSS_FIGHT' ? 2.0 : 1.0);
     this.particles.update();
 
+    // Decay timers
     if (this.screenShake > 0) {
       this.screenShake = Math.max(0, this.screenShake - 35 * dt);
+    }
+    if (this.themeToastTimer > 0) this.themeToastTimer--;
+    if (this.outBannerTimer > 0) this.outBannerTimer--;
+    if (this.damageVignette > 0) {
+      this.damageVignette = Math.max(0, this.damageVignette - 180 * dt);
+    }
+
+    // Respawn countdown handling
+    if (this.isRespawning) {
+      this.respawnTimer -= dt;
+      if (this.respawnTimer <= 0) {
+        this.isRespawning = false;
+        this.player.alive = true;
+        this.player.respawn();
+        this.particles.createWarpInEffect(this.player.x, this.player.y, this.theme.primary);
+        this.sound.play('powerup');
+      }
     }
 
     // Roll score
@@ -1682,9 +2009,9 @@ class Game {
       // Player input
       if (this.player && this.player.alive) {
         this.player.handleInput(this.keys);
-        this.player.update(dt, this.particles);
+        this.player.update(dt, this.particles, this.theme);
         if (this.keys['Space']) {
-          const newBullets = this.player.shoot(now);
+          const newBullets = this.player.shoot(now, this.theme);
           if (newBullets.length > 0) {
             this.playerBullets.push(...newBullets);
             this.sound.play('shoot');
@@ -1751,14 +2078,17 @@ class Game {
         this.mouse.clicked = false;
       }
 
+      const primary = this.theme && this.theme.primary ? this.theme.primary : COLORS.cyan;
+      const panelBg = this.theme && this.theme.panelBg ? this.theme.panelBg : 'rgba(12, 18, 40, 0.85)';
+
       this.ctx.save();
-      this.ctx.fillStyle = isHover ? 'rgba(0, 240, 255, 0.2)' : 'rgba(12, 18, 40, 0.85)';
-      this.ctx.strokeStyle = isHover ? '#ffffff' : COLORS.cyan;
+      this.ctx.fillStyle = isHover ? 'rgba(255, 255, 255, 0.15)' : panelBg;
+      this.ctx.strokeStyle = isHover ? '#ffffff' : primary;
       this.ctx.lineWidth = 2;
       this.ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
       this.ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
 
-      this.ctx.fillStyle = isHover ? '#ffffff' : COLORS.cyan;
+      this.ctx.fillStyle = isHover ? '#ffffff' : primary;
       this.ctx.font = 'bold 18px Orbitron, sans-serif';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
@@ -1767,12 +2097,101 @@ class Game {
     }
   }
 
+  drawDamageVignette(ctx) {
+    let alpha = this.damageVignette / 255;
+    if (this.player && this.player.alive && this.player.hp / this.player.maxHp <= 0.30) {
+      const pulse = 0.25 + 0.15 * Math.sin(Date.now() * 0.007);
+      alpha = Math.max(alpha, pulse);
+    }
+    if (alpha <= 0.01) return;
+
+    ctx.save();
+    const thick = 36;
+    ctx.fillStyle = `rgba(220, 20, 40, ${Math.min(0.85, alpha)})`;
+    ctx.fillRect(0, 0, WIDTH, thick);
+    ctx.fillRect(0, HEIGHT - thick, WIDTH, thick);
+    ctx.fillRect(0, 0, thick, HEIGHT);
+    ctx.fillRect(WIDTH - thick, 0, thick, HEIGHT);
+    ctx.restore();
+  }
+
+  drawOutBanner(ctx) {
+    if (this.outBannerTimer <= 0) return;
+    ctx.save();
+    const bannerH = 140;
+    const by = (HEIGHT - bannerH) / 2;
+    ctx.fillStyle = 'rgba(16, 6, 10, 0.92)';
+    ctx.fillRect(0, by, WIDTH, bannerH);
+    ctx.strokeStyle = COLORS.red;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, by);
+    ctx.lineTo(WIDTH, by);
+    ctx.moveTo(0, by + bannerH);
+    ctx.lineTo(WIDTH, by + bannerH);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    if (this.player && this.player.outs < 3) {
+      ctx.font = '900 44px Orbitron, sans-serif';
+      ctx.fillStyle = '#ff4b4b';
+      ctx.shadowColor = '#ff2222';
+      ctx.shadowBlur = 15;
+      ctx.fillText(`💥 OUT ${this.player.outs} OF 3 💥`, WIDTH / 2, HEIGHT / 2 - 14);
+
+      ctx.font = 'bold 20px Orbitron, sans-serif';
+      ctx.fillStyle = COLORS.yellow;
+      ctx.shadowBlur = 0;
+      ctx.fillText(`WARPING REINFORCEMENTS IN ${Math.max(1, Math.ceil(this.respawnTimer))}s...`, WIDTH / 2, HEIGHT / 2 + 28);
+    } else {
+      ctx.font = '900 46px Orbitron, sans-serif';
+      ctx.fillStyle = COLORS.red;
+      ctx.shadowColor = COLORS.red;
+      ctx.shadowBlur = 20;
+      ctx.fillText('💀 STRIKE 3 — ALL OUT! 💀', WIDTH / 2, HEIGHT / 2 - 14);
+
+      ctx.font = 'bold 18px Orbitron, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 0;
+      ctx.fillText('MISSION COMPROMISED — INITIATING DEBRIEFING...', WIDTH / 2, HEIGHT / 2 + 28);
+    }
+    ctx.restore();
+  }
+
+  drawThemeToast(ctx) {
+    if (this.themeToastTimer <= 0) return;
+    const alpha = Math.min(1.0, this.themeToastTimer / 25.0);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const pillW = 380;
+    const pillH = 46;
+    const px = (WIDTH - pillW) / 2;
+    const py = 76;
+    ctx.fillStyle = this.theme.panelBg || 'rgba(12, 18, 40, 0.9)';
+    ctx.fillRect(px, py, pillW, pillH);
+    ctx.strokeStyle = this.theme.primary;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px, py, pillW, pillH);
+
+    ctx.font = 'bold 16px Orbitron, sans-serif';
+    ctx.fillStyle = this.theme.primary;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`🎨 THEME: ${this.theme.name}`, WIDTH / 2, py + pillH / 2);
+    ctx.restore();
+  }
+
   drawHUD() {
     this.ctx.save();
+    const primary = this.theme && this.theme.primary ? this.theme.primary : COLORS.cyan;
+    const shieldCol = this.theme && this.theme.shield ? this.theme.shield : COLORS.cyan;
+    const borderCol = this.theme && this.theme.panelBorder ? this.theme.panelBorder : 'rgba(0, 240, 255, 0.3)';
+    const bgCol = this.theme && this.theme.panelBg ? this.theme.panelBg : 'rgba(8, 12, 28, 0.75)';
+
     // Top Bar Background
-    this.ctx.fillStyle = 'rgba(8, 12, 28, 0.75)';
+    this.ctx.fillStyle = bgCol;
     this.ctx.fillRect(0, 0, WIDTH, 65);
-    this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+    this.ctx.strokeStyle = borderCol;
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     this.ctx.moveTo(0, 65);
@@ -1784,12 +2203,12 @@ class Game {
     this.ctx.fillStyle = COLORS.white;
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`SCORE: ${String(this.displayedScore).padStart(7, '0')}`, 25, 28);
-    this.ctx.fillStyle = COLORS.cyan;
+    this.ctx.fillStyle = primary;
     this.ctx.fillText(`LEVEL: ${String(this.level).padStart(2, '0')}`, 25, 52);
 
     // HP & Shield Bars
-    const hpX = 280;
-    const barW = 150;
+    const hpX = 260;
+    const barW = 140;
     const hpRatio = this.player ? Math.max(0, this.player.hp / this.player.maxHp) : 0;
     this.ctx.fillStyle = 'rgba(40, 15, 20, 0.9)';
     this.ctx.fillRect(hpX, 16, barW, 14);
@@ -1801,34 +2220,60 @@ class Game {
     const shieldRatio = this.player ? Math.max(0, this.player.shield / this.player.maxShield) : 0;
     this.ctx.fillStyle = 'rgba(10, 25, 45, 0.9)';
     this.ctx.fillRect(hpX, 38, barW, 14);
-    this.ctx.fillStyle = COLORS.cyan;
+    this.ctx.fillStyle = shieldCol;
     this.ctx.fillRect(hpX, 38, barW * shieldRatio, 14);
     this.ctx.strokeStyle = '#ffffff';
     this.ctx.strokeRect(hpX, 38, barW, 14);
 
     this.ctx.font = 'bold 12px Orbitron, sans-serif';
     this.ctx.fillStyle = COLORS.white;
-    this.ctx.fillText('HP', hpX + barW + 10, 28);
-    this.ctx.fillStyle = COLORS.cyan;
-    this.ctx.fillText('SHIELD', hpX + barW + 10, 50);
+    this.ctx.fillText('HP', hpX + barW + 8, 28);
+    this.ctx.fillStyle = shieldCol;
+    this.ctx.fillText('SHIELD', hpX + barW + 8, 50);
 
-    // Lives
+    // 3-Slot Arcade Out Tracker
+    const outsX = 490;
     this.ctx.fillStyle = COLORS.gray;
-    this.ctx.fillText('LIVES:', 550, 40);
-    for (let i = 0; i < (this.player ? this.player.lives : 0); i++) {
-      const lx = 620 + i * 26;
-      this.ctx.fillStyle = COLORS.cyan;
-      this.ctx.beginPath();
-      this.ctx.moveTo(lx, 26);
-      this.ctx.lineTo(lx + 7, 44);
-      this.ctx.lineTo(lx - 7, 44);
-      this.ctx.closePath();
-      this.ctx.fill();
+    this.ctx.fillText('OUTS:', outsX, 40);
+    for (let i = 0; i < 3; i++) {
+      const ox = outsX + 50 + i * 26;
+      const oy = 26;
+      if (this.player && i < this.player.outs) {
+        // Red X Struck Out Box
+        this.ctx.fillStyle = 'rgba(50, 10, 15, 0.85)';
+        this.ctx.fillRect(ox, oy, 20, 20);
+        this.ctx.strokeStyle = COLORS.red;
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(ox, oy, 20, 20);
+        this.ctx.strokeStyle = COLORS.red;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(ox + 4, oy + 4);
+        this.ctx.lineTo(ox + 16, oy + 16);
+        this.ctx.moveTo(ox + 16, oy + 4);
+        this.ctx.lineTo(ox + 4, oy + 16);
+        this.ctx.stroke();
+      } else {
+        // Active Ship Slot
+        this.ctx.fillStyle = 'rgba(12, 24, 42, 0.85)';
+        this.ctx.fillRect(ox, oy, 20, 20);
+        this.ctx.strokeStyle = primary;
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(ox, oy, 20, 20);
+        this.ctx.fillStyle = primary;
+        this.ctx.beginPath();
+        this.ctx.moveTo(ox + 10, oy + 4);
+        this.ctx.lineTo(ox + 16, oy + 16);
+        this.ctx.lineTo(ox + 10, oy + 13);
+        this.ctx.lineTo(ox + 4, oy + 16);
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
     }
 
     // Active Power-ups
     if (this.player) {
-      let px = 760;
+      let px = 680;
       for (const [key, val] of Object.entries(this.player.powerups)) {
         if (val > 0) {
           this.ctx.fillStyle = COLORS.yellow;
@@ -1854,6 +2299,21 @@ class Game {
       this.ctx.textAlign = 'center';
       this.ctx.fillText(`${this.boss.name} [PHASE ${this.boss.phase}]`, WIDTH / 2, 74);
     }
+
+    // Critical Hull Warning Alarm
+    if (this.player && this.player.alive && this.player.hp / this.player.maxHp <= 0.30) {
+      const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.008);
+      this.ctx.fillStyle = `rgba(220, 20, 40, ${pulse * 0.85})`;
+      this.ctx.fillRect(WIDTH / 2 - 200, 75, 400, 24);
+      this.ctx.strokeStyle = COLORS.red;
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(WIDTH / 2 - 200, 75, 400, 24);
+      this.ctx.font = 'bold 12px Orbitron, sans-serif';
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('⚠️ CRITICAL HULL — EVASIVE ACTION ⚠️', WIDTH / 2, 91);
+    }
+
     this.ctx.restore();
   }
 
@@ -1866,7 +2326,8 @@ class Game {
       this.ctx.translate(sx, sy);
     }
 
-    this.ctx.fillStyle = COLORS.bg;
+    const bgCol = this.theme && this.theme.bg ? this.theme.bg : COLORS.bg;
+    this.ctx.fillStyle = bgCol;
     this.ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
     this.starfield.draw(this.ctx);
@@ -1876,18 +2337,21 @@ class Game {
       this.asteroids.forEach((a) => a.draw(this.ctx));
       this.enemies.forEach((e) => e.draw(this.ctx));
       if (this.boss) this.boss.draw(this.ctx);
-      if (this.player) this.player.draw(this.ctx);
+      if (this.player) this.player.draw(this.ctx, this.theme);
       this.playerBullets.forEach((b) => b.draw(this.ctx));
       this.enemyBullets.forEach((b) => b.draw(this.ctx));
       this.particles.draw(this.ctx);
       this.drawHUD();
+      this.drawDamageVignette(this.ctx);
+      this.drawOutBanner(this.ctx);
+      this.drawThemeToast(this.ctx);
 
       if (this.levelTransitionTimer > 0) {
         this.ctx.save();
         this.ctx.font = '900 52px Orbitron, sans-serif';
-        this.ctx.fillStyle = COLORS.cyan;
+        this.ctx.fillStyle = this.theme.primary;
         this.ctx.textAlign = 'center';
-        this.ctx.shadowColor = COLORS.cyan;
+        this.ctx.shadowColor = this.theme.primary;
         this.ctx.shadowBlur = 20;
         this.ctx.fillText(`— LEVEL ${this.level} —`, WIDTH / 2, HEIGHT / 2 - 20);
         this.ctx.restore();
@@ -1898,42 +2362,73 @@ class Game {
       this.particles.draw(this.ctx);
       this.ctx.save();
       this.ctx.font = '900 64px Orbitron, sans-serif';
-      this.ctx.fillStyle = COLORS.cyan;
+      this.ctx.fillStyle = this.theme.primary;
       this.ctx.textAlign = 'center';
-      this.ctx.shadowColor = COLORS.cyan;
+      this.ctx.shadowColor = this.theme.primary;
       this.ctx.shadowBlur = 25;
-      this.ctx.fillText('NEBULA STRIKE', WIDTH / 2, 180);
+      this.ctx.fillText('NEBULA STRIKE', WIDTH / 2, 160);
 
       this.ctx.font = 'bold 22px Orbitron, sans-serif';
-      this.ctx.fillStyle = COLORS.magenta;
-      this.ctx.fillText('— DEFEND THE GALAXY —', WIDTH / 2, 235);
+      this.ctx.fillStyle = this.theme.secondary;
+      this.ctx.fillText(`— DEFEND THE GALAXY [${this.theme.name}] —`, WIDTH / 2, 215);
+
+      this.ctx.font = 'bold 14px Orbitron, sans-serif';
+      this.ctx.fillStyle = COLORS.gray;
+      this.ctx.fillText('PRESS [T] ANYTIME TO CYCLE THEMES', WIDTH / 2, 250);
       this.ctx.restore();
 
+      this.drawThemeToast(this.ctx);
       this.drawButtons(this.menuBtns);
     } else if (this.state === 'PAUSED') {
       this.ctx.fillStyle = 'rgba(5, 8, 20, 0.8)';
       this.ctx.fillRect(0, 0, WIDTH, HEIGHT);
       this.ctx.save();
       this.ctx.font = 'bold 42px Orbitron, sans-serif';
-      this.ctx.fillStyle = COLORS.cyan;
+      this.ctx.fillStyle = this.theme.primary;
       this.ctx.textAlign = 'center';
       this.ctx.fillText('GAME PAUSED', WIDTH / 2, 200);
       this.ctx.restore();
       this.drawButtons(this.pauseBtns);
     } else if (this.state === 'GAME_OVER') {
-      this.ctx.fillStyle = 'rgba(20, 5, 10, 0.85)';
+      this.ctx.fillStyle = 'rgba(16, 5, 8, 0.92)';
       this.ctx.fillRect(0, 0, WIDTH, HEIGHT);
       this.ctx.save();
-      this.ctx.font = '900 56px Orbitron, sans-serif';
+      this.ctx.font = '900 48px Orbitron, sans-serif';
       this.ctx.fillStyle = COLORS.red;
       this.ctx.textAlign = 'center';
-      this.ctx.fillText('GAME OVER', WIDTH / 2, 160);
+      this.ctx.fillText('MISSION FAILED — ALL OUT', WIDTH / 2, 105);
 
-      this.ctx.font = 'bold 22px Orbitron, sans-serif';
-      this.ctx.fillStyle = COLORS.white;
-      this.ctx.fillText(`FINAL SCORE: ${String(this.score).padStart(7, '0')}`, WIDTH / 2, 240);
-      this.ctx.fillStyle = COLORS.cyan;
-      this.ctx.fillText(`SECTOR REACHED: LEVEL ${this.level}`, WIDTH / 2, 280);
+      // Debriefing Panel
+      const panelW = 580;
+      const panelH = 265;
+      const panelX = (WIDTH - panelW) / 2;
+      const panelY = 140;
+      this.ctx.fillStyle = 'rgba(25, 8, 12, 0.88)';
+      this.ctx.fillRect(panelX, panelY, panelW, panelH);
+      this.ctx.strokeStyle = 'rgba(255, 60, 60, 0.9)';
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+      const stats = [
+        ['OUTS SUSTAINED:', '3 / 3 (ALL OUT)', COLORS.red],
+        ['SECTOR REACHED:', `LEVEL ${this.level}`, this.theme.primary],
+        ['FINAL COMBAT SCORE:', String(this.score).padStart(7, '0'), COLORS.white],
+        ['TOTAL DAMAGE DEALT:', `${this.totalDamageDealt.toLocaleString()} HP`, COLORS.yellow],
+        ['DAMAGE RECEIVED:', `${this.totalDamageTaken.toLocaleString()} HP`, '#ff8282'],
+        ['ENEMIES ELIMINATED:', `${this.enemiesKilled} SHIPS`, COLORS.green],
+        ['ASTEROIDS DEMOLISHED:', `${this.asteroidsDestroyed}`, '#abb9c4'],
+      ];
+
+      this.ctx.font = 'bold 15px Orbitron, sans-serif';
+      stats.forEach(([label, val, col], i) => {
+        const sy = panelY + 28 + i * 32;
+        this.ctx.textAlign = 'left';
+        this.ctx.fillStyle = COLORS.gray;
+        this.ctx.fillText(label, panelX + 30, sy);
+        this.ctx.textAlign = 'right';
+        this.ctx.fillStyle = col;
+        this.ctx.fillText(val, panelX + panelW - 30, sy);
+      });
       this.ctx.restore();
       this.drawButtons(this.gameOverBtns);
     } else if (this.state === 'VICTORY') {
@@ -1954,14 +2449,16 @@ class Game {
     } else if (this.state === 'SETTINGS') {
       this.ctx.save();
       this.ctx.font = 'bold 42px Orbitron, sans-serif';
-      this.ctx.fillStyle = COLORS.cyan;
+      this.ctx.fillStyle = this.theme.primary;
       this.ctx.textAlign = 'center';
-      this.ctx.fillText('SETTINGS', WIDTH / 2, 150);
+      this.ctx.fillText('SETTINGS', WIDTH / 2, 140);
 
-      this.ctx.font = 'bold 20px Orbitron, sans-serif';
+      this.ctx.font = 'bold 18px Orbitron, sans-serif';
       this.ctx.fillStyle = COLORS.white;
+      this.ctx.fillText(`ACTIVE THEME: ${this.theme.name}`, WIDTH / 2, 230);
       this.ctx.fillText(`CURRENT DIFFICULTY: ${this.settings.difficulty}`, WIDTH / 2, 280);
       this.ctx.restore();
+      this.drawThemeToast(this.ctx);
       this.drawButtons(this.settingsBtns);
     } else if (this.state === 'HIGH_SCORES') {
       this.ctx.save();
@@ -1971,7 +2468,7 @@ class Game {
       this.ctx.fillText('🏆 TOP PILOTS LEADERBOARD', WIDTH / 2, 130);
 
       this.ctx.font = 'bold 16px Orbitron, sans-serif';
-      this.ctx.fillStyle = COLORS.cyan;
+      this.ctx.fillStyle = this.theme.primary;
       this.ctx.fillText('RANK       SCORE        SECTOR        DATE', WIDTH / 2, 200);
 
       this.ctx.fillStyle = COLORS.white;

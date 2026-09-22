@@ -16,7 +16,7 @@ from settings import (
     WIDTH, HEIGHT, FPS, TITLE, BG_COLOR, CYAN, MAGENTA, RED, YELLOW, WHITE,
     GREEN, ORANGE, PURPLE, GRAY,
     load_settings, save_settings, load_highscores, save_highscores,
-    DIFFICULTY_PRESETS, SOUNDS_DIR
+    DIFFICULTY_PRESETS, SOUNDS_DIR, get_theme, cycle_theme, THEMES
 )
 from starfield import Starfield
 from particles import ParticleSystem
@@ -189,11 +189,25 @@ class Game:
         # Systems & Managers
         self.settings = load_settings()
         self.highscores = load_highscores()
+        self.theme_name = self.settings.get("theme", "CYBER_NEON")
+        self.theme = get_theme(self.theme_name)
         self.sound_manager = SoundManager(self.settings)
-        self.starfield = Starfield(WIDTH, HEIGHT)
+        self.starfield = Starfield(WIDTH, HEIGHT, theme_data=self.theme)
         self.particle_system = ParticleSystem()
         self.collision_manager = CollisionManager(self)
         self.ui = UI(self)
+
+        # Combat & Out System Stats
+        self.damage_vignette = 0.0
+        self.total_damage_dealt = 0
+        self.total_damage_taken = 0
+        self.enemies_killed = 0
+        self.asteroids_destroyed = 0
+        self.out_banner_timer = 0
+        self.respawn_timer = 0.0
+        self.is_respawning = False
+        self.hitstop_frames = 0
+        self.theme_toast_timer = 0
 
         # Game State
         self.state = self.STATE_MENU
@@ -242,8 +256,8 @@ class Game:
 
         # Game Over Menu
         self.game_over_buttons = [
-            Button(cx, 370, btn_w, btn_h, "▶  PLAY AGAIN", 22, GREEN, WHITE),
-            Button(cx, 440, btn_w, btn_h, "🏠  MAIN MENU", 22, CYAN, WHITE)
+            Button(cx, 440, btn_w, btn_h, "▶  PLAY AGAIN", 22, GREEN, WHITE),
+            Button(cx, 510, btn_w, btn_h, "🏠  MAIN MENU", 22, CYAN, WHITE)
         ]
 
         # Victory Menu
@@ -252,13 +266,14 @@ class Game:
             Button(cx, 430, btn_w, btn_h, "🏠  MAIN MENU", 22, CYAN, WHITE)
         ]
 
-        # Settings Menu
+        # Settings Menu (with Theme Selector)
         self.settings_buttons = [
-            Button(cx, 480, btn_w, btn_h, "TOGGLE MUSIC", 18, CYAN, WHITE),
-            Button(cx, 545, btn_w, btn_h, "TOGGLE SFX", 18, CYAN, WHITE),
-            Button(cx, 610, btn_w, btn_h, "TOGGLE SHAKE", 18, CYAN, WHITE),
-            Button(cx - 130, 610, 120, btn_h, "DIFFICULTY", 18, YELLOW, WHITE),
-            Button(cx + 250, 610, 120, btn_h, "◀  BACK", 18, MAGENTA, WHITE)
+            Button(cx, 450, btn_w, 42, "CYCLE THEME (T)", 18, CYAN, WHITE),
+            Button(cx, 500, btn_w, 42, "TOGGLE MUSIC", 18, CYAN, WHITE),
+            Button(cx, 550, btn_w, 42, "TOGGLE SFX", 18, CYAN, WHITE),
+            Button(cx, 600, btn_w, 42, "TOGGLE SHAKE", 18, CYAN, WHITE),
+            Button(cx - 130, 655, 120, 42, "DIFFICULTY", 18, YELLOW, WHITE),
+            Button(cx + 250, 655, 120, 42, "◀  BACK", 18, MAGENTA, WHITE)
         ]
 
         # High Scores Menu
@@ -266,11 +281,48 @@ class Game:
             Button(cx, 580, btn_w, btn_h, "◀  BACK", 22, MAGENTA, WHITE)
         ]
 
+    def cycle_active_theme(self):
+        """Switch to the next theme, update starfield, player, UI, and show toast."""
+        self.theme_name = cycle_theme(self.theme_name)
+        self.theme = get_theme(self.theme_name)
+        self.settings["theme"] = self.theme_name
+        save_settings(self.settings)
+        self.starfield.apply_theme(self.theme)
+        if self.player:
+            self.player.set_theme(self.theme)
+        self.theme_toast_timer = 90
+        self.sound_manager.play("powerup")
+
+    def trigger_player_damage(self, hp_damage):
+        """Triggers red damage screen vignette and accumulates combat damage."""
+        if hp_damage > 0:
+            self.damage_vignette = min(220.0, self.damage_vignette + hp_damage * 3.5)
+            self.total_damage_taken += hp_damage
+
+    def on_player_out(self):
+        """Executes arcade Out sequence with slow-mo freeze, banner, explosion, and respawn countdown."""
+        self.hitstop_frames = 12
+        self.particle_system.create_explosion(self.player.x, self.player.y, RED, count=40, speed_max=9.0)
+        self.sound_manager.play("explosion")
+        self.sound_manager.play("game_over")
+        self.trigger_screen_shake(18)
+        self.damage_vignette = 200.0
+
+        self.player.lose_life()
+        self.out_banner_timer = 150
+
+        if not self.player.alive:
+            self.is_respawning = False
+            self.respawn_timer = 0.0
+        else:
+            self.is_respawning = True
+            self.respawn_timer = 2.0
+
     def reset_game(self):
         """Reset all game variables to start fresh from Level 1."""
         self.score = 0
         self.level = 1
-        self.player = Player()
+        self.player = Player(theme_data=self.theme)
         self.player_bullets.clear()
         self.enemy_bullets.clear()
         self.asteroids.clear()
@@ -278,6 +330,17 @@ class Game:
         self.boss = None
         self.powerups.clear()
         self.particle_system.clear()
+
+        # Reset combat stats
+        self.damage_vignette = 0.0
+        self.total_damage_dealt = 0
+        self.total_damage_taken = 0
+        self.enemies_killed = 0
+        self.asteroids_destroyed = 0
+        self.out_banner_timer = 0
+        self.respawn_timer = 0.0
+        self.is_respawning = False
+        self.hitstop_frames = 0
 
         self.level_enemies_defeated = 0
         self.level_enemies_needed = 12
@@ -403,7 +466,9 @@ class Game:
                 self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_p and self.state in [self.STATE_PLAYING, self.STATE_BOSS]:
+                if event.key == pygame.K_t:
+                    self.cycle_active_theme()
+                elif event.key == pygame.K_p and self.state in [self.STATE_PLAYING, self.STATE_BOSS]:
                     self.state = self.STATE_PAUSED
                 elif event.key == pygame.K_p and self.state == self.STATE_PAUSED:
                     self.state = self.STATE_PLAYING if not self.boss else self.STATE_BOSS
@@ -449,26 +514,29 @@ class Game:
                 self.state = self.STATE_MENU
 
         elif self.state == self.STATE_SETTINGS:
-            # Toggle Music
+            # Cycle Theme
             if self.settings_buttons[0].rect.collidepoint(mouse_pos):
+                self.cycle_active_theme()
+            # Toggle Music
+            elif self.settings_buttons[1].rect.collidepoint(mouse_pos):
                 self.settings["music_on"] = not self.settings.get("music_on", True)
                 save_settings(self.settings)
             # Toggle SFX
-            elif self.settings_buttons[1].rect.collidepoint(mouse_pos):
+            elif self.settings_buttons[2].rect.collidepoint(mouse_pos):
                 self.settings["sfx_on"] = not self.settings.get("sfx_on", True)
                 save_settings(self.settings)
             # Toggle Screen Shake
-            elif self.settings_buttons[2].rect.collidepoint(mouse_pos):
+            elif self.settings_buttons[3].rect.collidepoint(mouse_pos):
                 self.settings["screen_shake"] = not self.settings.get("screen_shake", True)
                 save_settings(self.settings)
             # Toggle Difficulty
-            elif self.settings_buttons[3].rect.collidepoint(mouse_pos):
+            elif self.settings_buttons[4].rect.collidepoint(mouse_pos):
                 curr = self.settings.get("difficulty", "NORMAL")
                 cycle = {"EASY": "NORMAL", "NORMAL": "HARD", "HARD": "EASY"}
                 self.settings["difficulty"] = cycle.get(curr, "NORMAL")
                 save_settings(self.settings)
             # Back
-            elif self.settings_buttons[4].rect.collidepoint(mouse_pos):
+            elif self.settings_buttons[5].rect.collidepoint(mouse_pos):
                 self.state = self.STATE_MENU
 
         elif self.state == self.STATE_HIGHSCORES:
@@ -476,18 +544,40 @@ class Game:
                 self.state = self.STATE_MENU
 
     def update(self, dt_sec):
-        """Update game world, entities, physics, and collisions."""
+        """Update game world, entities, physics, timers, and collisions."""
         current_time = pygame.time.get_ticks()
 
-        # Update Starfield & Particles (always active for background ambiance)
+        # Update Starfield & Particles
         star_spd = 2.0 if self.state in [self.STATE_PLAYING, self.STATE_BOSS] else 1.0
         self.starfield.update(dt_sec, speed_mult=star_spd)
         self.particle_system.update()
         self.ui.update(dt_sec)
 
-        # Screen shake decay
+        # Timers decay
         if self.screen_shake > 0:
             self.screen_shake = max(0.0, self.screen_shake - 35 * dt_sec)
+        if self.damage_vignette > 0:
+            self.damage_vignette = max(0.0, self.damage_vignette - 100 * dt_sec)
+        if self.theme_toast_timer > 0:
+            self.theme_toast_timer -= 1
+        if self.out_banner_timer > 0:
+            self.out_banner_timer -= 1
+            if self.player and not self.player.alive and self.out_banner_timer <= 0 and self.state in [self.STATE_PLAYING, self.STATE_BOSS]:
+                self.on_game_over()
+
+        # Out System: Respawn sequence countdown
+        if self.is_respawning:
+            self.respawn_timer = max(0.0, self.respawn_timer - dt_sec)
+            if self.respawn_timer <= 0:
+                self.is_respawning = False
+                if self.player and self.player.alive:
+                    self.player.respawn(self.particle_system)
+                    self.sound_manager.play("powerup")
+
+        # Hitstop brief slow-mo impact freeze on damage/out
+        if self.hitstop_frames > 0:
+            self.hitstop_frames -= 1
+            return
 
         # Gameplay Updates
         if self.state in [self.STATE_PLAYING, self.STATE_BOSS]:
@@ -497,7 +587,7 @@ class Game:
 
             # Player Input & Shooting
             keys = pygame.key.get_pressed()
-            if self.player and self.player.alive:
+            if self.player and self.player.alive and not self.is_respawning:
                 self.player.handle_input(keys)
                 self.player.update(dt_sec, self.particle_system)
 
@@ -525,7 +615,6 @@ class Game:
             # Update Enemies
             for enemy in self.enemies:
                 enemy.update(self.player, current_time, self.particle_system)
-                # Enemy shooting
                 new_ebs = enemy.shoot(current_time, self.player)
                 if new_ebs:
                     self.enemy_bullets.extend(new_ebs)
@@ -562,10 +651,9 @@ class Game:
             self.collision_manager.update()
 
     def draw(self):
-        """Render frame to screen with screen shake offset."""
-        # Create rendering target surface
+        """Render frame to screen with theme palettes, screen shake, and combat overlays."""
         render_surf = pygame.Surface((WIDTH, HEIGHT))
-        render_surf.fill(BG_COLOR)
+        render_surf.fill(self.theme.get("bg_color", BG_COLOR))
 
         # 1. Background Starfield & Nebulae
         self.starfield.draw(render_surf)
@@ -588,8 +676,8 @@ class Game:
             if self.boss and self.boss.alive:
                 self.boss.draw(render_surf)
 
-            # Player
-            if self.player:
+            # Player (only if alive and not in respawn sequence)
+            if self.player and not self.is_respawning:
                 self.player.draw(render_surf)
 
             # Bullets
@@ -604,10 +692,16 @@ class Game:
             # HUD
             self.ui.draw_hud(render_surf)
 
+            # Damage Screen Vignette & Low Health Alarm
+            self.ui.draw_damage_vignette(render_surf)
+
+            # Cinematic Out Announcement Banner
+            self.ui.draw_out_banner(render_surf)
+
             # Level Transition Animated Banner
             if self.level_transition_timer > 0:
                 alpha = int(255 * min(1.0, self.level_transition_timer / 40.0))
-                banner_surf = self.ui.font_title.render(f"— LEVEL {self.level} —", True, CYAN)
+                banner_surf = self.ui.font_title.render(f"— LEVEL {self.level} —", True, self.theme.get("primary", CYAN))
                 banner_surf.set_alpha(alpha)
                 b_rect = banner_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
                 render_surf.blit(banner_surf, b_rect)
@@ -636,14 +730,16 @@ class Game:
         elif self.state == self.STATE_HIGHSCORES:
             self.ui.draw_high_scores(render_surf, self.highscore_buttons, mouse_pos, self.highscores)
 
-        # 4. Blit to Screen with Screen Shake
+        # 4. Floating Theme Switch Notification Toast
+        self.ui.draw_theme_toast(render_surf)
+
+        # 5. Blit to Screen with Screen Shake
         shake_x = 0
         shake_y = 0
         if self.screen_shake > 0:
             shake_x = int(random.uniform(-self.screen_shake, self.screen_shake))
             shake_y = int(random.uniform(-self.screen_shake, self.screen_shake))
 
-        # Scale appropriately to window size
         curr_w, curr_h = self.screen.get_size()
         if curr_w == WIDTH and curr_h == HEIGHT:
             self.screen.blit(render_surf, (shake_x, shake_y))

@@ -114,8 +114,119 @@ DEFAULT_SETTINGS = {
     "music_on": True,
     "sfx_on": True,
     "screen_shake": True,
-    "difficulty": "NORMAL"
+    "difficulty": "NORMAL",
+    "theme": "CYBER_NEON"
 }
+
+# --- THEME SYSTEM ---
+THEMES = {
+    "CYBER_NEON": {
+        "name": "CYBER NEON",
+        "bg_color": (7, 11, 25),
+        "primary": (0, 240, 255),
+        "secondary": (255, 0, 128),
+        "accent": (0, 255, 136),
+        "star_tints": [(180, 220, 255), (200, 240, 255), (255, 255, 255), (140, 180, 255)],
+        "nebula_colors": [(0, 100, 200), (120, 0, 160), (0, 180, 220)],
+        "player_hull": (25, 35, 60),
+        "player_accent": (0, 240, 255),
+        "player_glow": (0, 255, 240),
+        "thruster_color": (0, 240, 255),
+        "bullet_color": (0, 240, 255),
+        "shield_color": (0, 240, 255),
+        "panel_bg": (12, 18, 40),
+        "panel_border": (0, 240, 255),
+        "hud_text": (255, 255, 255),
+    },
+    "SOLAR_INFERNO": {
+        "name": "SOLAR INFERNO",
+        "bg_color": (20, 8, 8),
+        "primary": (255, 90, 0),
+        "secondary": (255, 200, 0),
+        "accent": (255, 40, 40),
+        "star_tints": [(255, 220, 180), (255, 190, 140), (255, 255, 230), (255, 130, 80)],
+        "nebula_colors": [(180, 40, 0), (220, 100, 0), (140, 10, 20)],
+        "player_hull": (50, 25, 20),
+        "player_accent": (255, 120, 0),
+        "player_glow": (255, 215, 0),
+        "thruster_color": (255, 140, 0),
+        "bullet_color": (255, 160, 20),
+        "shield_color": (255, 160, 40),
+        "panel_bg": (35, 15, 15),
+        "panel_border": (255, 120, 0),
+        "hud_text": (255, 245, 235),
+    },
+    "TOXIC_MATRIX": {
+        "name": "TOXIC MATRIX",
+        "bg_color": (5, 18, 12),
+        "primary": (0, 255, 136),
+        "secondary": (0, 230, 255),
+        "accent": (180, 255, 0),
+        "star_tints": [(180, 255, 200), (200, 255, 230), (240, 255, 240), (100, 230, 150)],
+        "nebula_colors": [(0, 140, 60), (0, 90, 100), (40, 180, 80)],
+        "player_hull": (18, 42, 28),
+        "player_accent": (0, 255, 136),
+        "player_glow": (140, 255, 100),
+        "thruster_color": (0, 255, 136),
+        "bullet_color": (0, 255, 160),
+        "shield_color": (0, 255, 140),
+        "panel_bg": (10, 28, 20),
+        "panel_border": (0, 255, 136),
+        "hud_text": (240, 255, 245),
+    },
+    "RETRO_SYNTHWAVE": {
+        "name": "RETRO SYNTHWAVE",
+        "bg_color": (18, 6, 32),
+        "primary": (255, 0, 160),
+        "secondary": (160, 0, 255),
+        "accent": (255, 180, 0),
+        "star_tints": [(255, 200, 240), (230, 180, 255), (255, 255, 255), (255, 140, 220)],
+        "nebula_colors": [(150, 0, 180), (200, 0, 120), (80, 0, 140)],
+        "player_hull": (40, 18, 55),
+        "player_accent": (255, 0, 160),
+        "player_glow": (255, 120, 220),
+        "thruster_color": (255, 0, 180),
+        "bullet_color": (255, 50, 180),
+        "shield_color": (220, 60, 255),
+        "panel_bg": (28, 12, 45),
+        "panel_border": (255, 0, 160),
+        "hud_text": (255, 240, 255),
+    },
+    "CELESTIAL_AURORA": {
+        "name": "CELESTIAL AURORA",
+        "bg_color": (10, 8, 30),
+        "primary": (170, 120, 255),
+        "secondary": (255, 215, 90),
+        "accent": (0, 230, 240),
+        "star_tints": [(220, 210, 255), (255, 240, 200), (255, 255, 255), (180, 160, 240)],
+        "nebula_colors": [(90, 40, 180), (140, 90, 220), (30, 120, 160)],
+        "player_hull": (30, 25, 60),
+        "player_accent": (170, 120, 255),
+        "player_glow": (255, 215, 90),
+        "thruster_color": (160, 120, 255),
+        "bullet_color": (190, 150, 255),
+        "shield_color": (160, 140, 255),
+        "panel_bg": (20, 16, 45),
+        "panel_border": (170, 120, 255),
+        "hud_text": (250, 245, 255),
+    }
+}
+
+
+def get_theme(name="CYBER_NEON"):
+    """Retrieve theme dictionary by name, falling back to CYBER_NEON."""
+    return THEMES.get(name, THEMES["CYBER_NEON"])
+
+
+def cycle_theme(current_name):
+    """Cycle to the next theme key."""
+    theme_keys = list(THEMES.keys())
+    try:
+        idx = theme_keys.index(current_name)
+        next_idx = (idx + 1) % len(theme_keys)
+        return theme_keys[next_idx]
+    except ValueError:
+        return theme_keys[0]
 
 
 def load_settings():

@@ -2,5 +2,6 @@
   "music_on": true,
   "sfx_on": true,
   "screen_shake": true,
-  "difficulty": "NORMAL"
+  "difficulty": "NORMAL",
+  "theme": "TOXIC_MATRIX"
 }

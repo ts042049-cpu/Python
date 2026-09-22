@@ -77,6 +77,12 @@ class Star:
                 surface.set_at((ix, iy - 2), flare_color)
                 surface.set_at((ix, iy + 2), flare_color)
 
+    def apply_theme(self, theme_data):
+        """Update star color palette based on active theme."""
+        tints = theme_data.get("star_tints")
+        if tints:
+            self.color = random.choice(tints)
+
 
 class NebulaCloud:
     """Procedurally rendered soft glowing nebula cloud drifting in deep space."""
@@ -86,6 +92,11 @@ class NebulaCloud:
         self.radius = radius
         self.speed = speed
         self.color = color_rgb
+        self.surface = self._create_nebula_surface()
+
+    def set_color(self, new_color):
+        """Update color and bake new surface."""
+        self.color = new_color
         self.surface = self._create_nebula_surface()
 
     def _create_nebula_surface(self):
@@ -120,7 +131,7 @@ class NebulaCloud:
 
 class Starfield:
     """Manages the full parallax starfield and nebula layers."""
-    def __init__(self, width=WIDTH, height=HEIGHT):
+    def __init__(self, width=WIDTH, height=HEIGHT, theme_data=None):
         self.width = width
         self.height = height
         self.stars = []
@@ -140,6 +151,20 @@ class Starfield:
             NebulaCloud(WIDTH * 0.50, HEIGHT * 1.1, 300, (60, 20, 70), speed=0.22)
         ]
         self.time_sec = 0.0
+
+        if theme_data:
+            self.apply_theme(theme_data)
+
+    def apply_theme(self, theme_data):
+        """Applies active theme tints across all stars and procedural nebulae."""
+        for star in self.stars:
+            star.apply_theme(theme_data)
+        
+        neb_colors = theme_data.get("nebula_colors")
+        if neb_colors and len(neb_colors) >= 3:
+            for i, neb in enumerate(self.nebulae):
+                col = neb_colors[i % len(neb_colors)]
+                neb.set_color(col)
 
     def update(self, dt=1/60, speed_mult=1.0):
         """Update stars, nebulae, and animation clock."""

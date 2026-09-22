@@ -54,8 +54,9 @@ class Bullet:
 
 class PlayerBullet(Bullet):
     """Standard player laser bolt moving upward."""
-    def __init__(self, x, y, vx=0, vy=-PLAYER_BULLET_SPEED, damage=25, is_double=False):
-        color = CYAN if not is_double else YELLOW
+    def __init__(self, x, y, vx=0, vy=-PLAYER_BULLET_SPEED, damage=25, is_double=False, color=None):
+        if color is None:
+            color = CYAN if not is_double else YELLOW
         super().__init__(x, y, vx, vy, damage=damage, color=color, radius=4)
         self.length = 16
         self.is_double = is_double
